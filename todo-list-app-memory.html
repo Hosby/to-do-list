@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>할 일 목록 앱</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .date {
+            text-align: center;
+            font-size: 1.2em;
+            margin-bottom: 20px;
+            color: #666;
+        }
+        .input-container {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        #todo-input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px 0 0 4px;
+            font-size: 16px;
+        }
+        #add-button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 0 4px 4px 0;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        #add-button:hover {
+            background-color: #45a049;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            display: flex;
+            align-items: center;
+            background-color: white;
+            padding: 10px 15px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        li.completed {
+            background-color: #f9f9f9;
+            text-decoration: line-through;
+            color: #888;
+        }
+        .todo-text {
+            flex-grow: 1;
+            cursor: pointer; /* 커서를 포인터로 변경하여 클릭 가능함을 표시 */
+            padding: 5px; /* 클릭 영역 확장 */
+        }
+        .delete-btn {
+            color: #e74c3c;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 18px;
+            margin-left: 10px;
+        }
+        .actions {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .filter-btn {
+            background: none;
+            border: 1px solid #ddd;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .filter-btn.active {
+            background-color: #4CAF50;
+            color: white;
+            border-color: #4CAF50;
+        }
+        .clear-btn {
+            background-color: #f44336;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>나의 할 일 목록</h1>
+    <div class="date" id="current-date"></div>
+    
+    <div class="input-container">
+        <input type="text" id="todo-input" placeholder="할 일을 입력하세요...">
+        <button id="add-button">추가</button>
+    </div>
+    
+    <div class="actions">
+        <div>
+            <button class="filter-btn active" data-filter="all">전체</button>
+            <button class="filter-btn" data-filter="active">활성</button>
+            <button class="filter-btn" data-filter="completed">완료</button>
+        </div>
+        <button class="clear-btn" id="clear-completed">완료된 항목 삭제</button>
+    </div>
+    
+    <ul id="todo-list"></ul>
+
+    <script>
+        // 메모리에 할 일 목록 저장 (localStorage 대신)
+        let todos = [];
+        
+        // 현재 날짜 표시
+        function updateDate() {
+            const now = new Date();
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('current-date').textContent = now.toLocaleDateString('ko-KR', options);
+        }
+        
+        // 할 일 목록 렌더링
+        function renderTodos(filter = 'all') {
+            const todoList = document.getElementById('todo-list');
+            
+            // 필터링
+            let filteredTodos = todos;
+            if (filter === 'active') {
+                filteredTodos = todos.filter(todo => !todo.completed);
+            } else if (filter === 'completed') {
+                filteredTodos = todos.filter(todo => todo.completed);
+            }
+            
+            // 목록 초기화
+            todoList.innerHTML = '';
+            
+            // 할 일 항목 추가
+            filteredTodos.forEach((todo, index) => {
+                const li = document.createElement('li');
+                if (todo.completed) {
+                    li.classList.add('completed');
+                }
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = todo.completed;
+                checkbox.id = `todo-${index}`;
+                checkbox.addEventListener('change', () => toggleTodo(index));
+                
+                const span = document.createElement('span');
+                span.classList.add('todo-text');
+                span.textContent = todo.text;
+                // 텍스트 클릭 시 체크박스 토글
+                span.addEventListener('click', () => {
+                    checkbox.checked = !checkbox.checked;
+                    toggleTodo(index);
+                });
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.classList.add('delete-btn');
+                deleteBtn.innerHTML = '&times;';
+                deleteBtn.addEventListener('click', () => deleteTodo(index));
+                
+                li.appendChild(checkbox);
+                li.appendChild(span);
+                li.appendChild(deleteBtn);
+                todoList.appendChild(li);
+            });
+        }
+        
+        // 새 할 일 추가
+        function addTodo() {
+            const todoInput = document.getElementById('todo-input');
+            const todoText = todoInput.value.trim();
+            
+            if (todoText !== '') {
+                todos.push({ text: todoText, completed: false });
+                todoInput.value = '';
+                renderTodos();
+            }
+        }
+        
+        // 할 일 토글 (완료/미완료)
+        function toggleTodo(index) {
+            todos[index].completed = !todos[index].completed;
+            renderTodos(getCurrentFilter());
+        }
+        
+        // 할 일 삭제
+        function deleteTodo(index) {
+            todos.splice(index, 1);
+            renderTodos(getCurrentFilter());
+        }
+        
+        // 완료된 할 일 모두 삭제
+        function clearCompleted() {
+            todos = todos.filter(todo => !todo.completed);
+            renderTodos(getCurrentFilter());
+        }
+        
+        // 현재 필터 가져오기
+        function getCurrentFilter() {
+            const activeFilter = document.querySelector('.filter-btn.active');
+            return activeFilter.dataset.filter;
+        }
+        
+        // 초기 데이터 설정 (예시)
+        function setInitialData() {
+            todos = [
+                { text: "아침 운동하기", completed: true },
+                { text: "이메일 확인하기", completed: false },
+                { text: "프로젝트 계획 작성", completed: false }
+            ];
+        }
+        
+        // 이벤트 리스너 설정
+        function setupEventListeners() {
+            document.getElementById('add-button').addEventListener('click', addTodo);
+            
+            document.getElementById('todo-input').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    addTodo();
+                }
+            });
+            
+            document.getElementById('clear-completed').addEventListener('click', clearCompleted);
+            
+            // 필터 버튼
+            document.querySelectorAll('.filter-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    document.querySelectorAll('.filter-btn').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                    this.classList.add('active');
+                    renderTodos(this.dataset.filter);
+                });
+            });
+        }
+        
+        // 초기화
+        function init() {
+            updateDate();
+            setInitialData();
+            setupEventListeners();
+            renderTodos();
+        }
+        
+        // 앱 시작
+        init();
+    </script>
+</body>
+</html>
